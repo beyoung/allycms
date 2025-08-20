@@ -17,7 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = environ.get("SECRET_KEY", get_random_secret_key())
 
 DEBUG = environ.get("DEBUG") == "1"
-
+DEBUG = True
 ROOT_URLCONF = "formula.urls"
 
 WSGI_APPLICATION = "formula.wsgi.application"
@@ -363,6 +363,53 @@ UNFOLD = {
                 ],
             },
             {
+                "title": _("Content Management"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Articles"),
+                        "icon": "article",
+                        "link": reverse_lazy("admin:formula_article_changelist"),
+                    },
+                    {
+                        "title": _("Categories"),
+                        "icon": "category",
+                        "link": reverse_lazy("admin:formula_category_changelist"),
+                    },
+                    {
+                        "title": _("Pages"),
+                        "icon": "web",
+                        "link": reverse_lazy("admin:formula_page_changelist"),
+                    },
+                    {
+                        "title": _("Media"),
+                        "icon": "image",
+                        "link": reverse_lazy("admin:formula_media_changelist"),
+                    },
+                ],
+            },
+            {
+                "title": _("Contact & Inquiries"),
+                "collapsible": True,
+                "items": [
+                    {
+                        "title": _("Contacts"),
+                        "icon": "contact_mail",
+                        "link": reverse_lazy("admin:formula_contact_changelist"),
+                    },
+                    {
+                        "title": _("Inquiries"),
+                        "icon": "business_center",
+                        "link": reverse_lazy("admin:formula_inquiry_changelist"),
+                    },
+                    {
+                        "title": _("Messages"),
+                        "icon": "message",
+                        "link": reverse_lazy("admin:formula_message_changelist"),
+                    },
+                ],
+            },
+            {
                 "title": _("Users & Groups"),
                 "collapsible": True,
                 "items": [
@@ -425,9 +472,9 @@ UNFOLD = {
 
 UNFOLD_STUDIO_DEFAULT_FRAGMENT = "color-schemes"
 
-UNFOLD_STUDIO_ENABLE_SAVE = False
+UNFOLD_STUDIO_ENABLE_SAVE = True
 
-UNFOLD_STUDIO_ENABLE_FILEUPLOAD = False
+UNFOLD_STUDIO_ENABLE_FILEUPLOAD = True
 
 UNFOLD_STUDIO_ALWAYS_OPEN = True
 

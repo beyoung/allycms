@@ -78,10 +78,23 @@ from formula.models import (
     Standing,
     Tag,
     User,
+    # CMS Models
+    Article,
+    Category,
+    Page,
+    Media,
+    # Contact & Inquiry Models
+    Contact,
+    Inquiry,
+    Message,
+    ContentStatus,
+    InquiryStatus,
 )
 from formula.resources import AnotherConstructorResource, ConstructorResource
 from formula.sites import formula_admin_site
 from formula.views import CrispyFormsetView, CrispyFormView
+from formula.forms import RichTextWidget
+
 
 admin.site.unregister(PeriodicTask)
 admin.site.unregister(IntervalSchedule)
@@ -1210,3 +1223,399 @@ class DriverSectionChangeComponent(BaseComponent):
 @admin.register(Config, site=formula_admin_site)
 class ConstanceConfigAdmin(ConstanceAdmin):
     pass
+
+
+######################################################################
+# CMS Content Management Admin
+######################################################################
+
+
+@admin.register(Category, site=formula_admin_site)
+class CategoryAdmin(ModelAdmin, SimpleHistoryAdmin):
+    list_display = ["name", "slug", "parent", "is_active", "order", "created_at"]
+    list_filter = [
+        "is_active",
+        ("parent", RelatedDropdownFilter),
+        "created_at",
+    ]
+    search_fields = ["name", "description"]
+    prepopulated_fields = {"slug": ["name"]}
+    list_editable = ["order", "is_active"]
+    ordering = ["order", "name"]
+
+    fieldsets = (
+        (_("Basic Information"), {"fields": ("name", "slug", "description", "parent")}),
+        (_("Media"), {"fields": ("image",)}),
+        (_("Settings"), {"fields": ("is_active", "order")}),
+    )
+
+
+@admin.register(Article, site=formula_admin_site)
+class ArticleAdmin(ModelAdmin, SimpleHistoryAdmin):
+    formfield_overrides = {
+        models.TextField: {
+            "widget": RichTextWidget,
+        }
+    }
+    list_display = [
+        "title",
+        "category",
+        "author",
+        "status",
+        "is_featured",
+        "view_count",
+        "published_at",
+    ]
+    list_filter = [
+        "status",
+        "is_featured",
+        ("category", RelatedDropdownFilter),
+        ("author", RelatedDropdownFilter),
+        "published_at",
+        "created_at",
+    ]
+    search_fields = ["title", "content", "excerpt"]
+    prepopulated_fields = {"slug": ["title"]}
+    list_editable = ["status", "is_featured"]
+    ordering = ["-published_at", "-created_at"]
+    date_hierarchy = "published_at"
+
+    fieldsets = (
+        (
+            _("Content"),
+            {"fields": ("title", "slug", "content", "excerpt", "featured_image")},
+        ),
+        (_("Categorization"), {"fields": ("category", "author")}),
+        (_("Publication"), {"fields": ("status", "published_at", "is_featured")}),
+        (
+            _("SEO"),
+            {
+                "fields": ("meta_title", "meta_description", "meta_keywords"),
+                "classes": ("collapse",),
+            },
+        ),
+        (_("Statistics"), {"fields": ("view_count",), "classes": ("collapse",)}),
+    )
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related("category", "author")
+
+
+@admin.register(Page, site=formula_admin_site)
+class PageAdmin(ModelAdmin, SimpleHistoryAdmin):
+    formfield_overrides = {
+        models.TextField: {
+            "widget": RichTextWidget,
+        }
+    }
+    list_display = ["title", "slug", "status", "is_homepage", "order", "published_at"]
+    list_filter = [
+        "status",
+        "is_homepage",
+        "template",
+        "published_at",
+        "created_at",
+    ]
+    search_fields = ["title", "content"]
+    prepopulated_fields = {"slug": ["title"]}
+    list_editable = ["status", "is_homepage", "order"]
+    ordering = ["order", "title"]
+
+    fieldsets = (
+        (_("Content"), {"fields": ("title", "slug", "content", "template")}),
+        (
+            _("Publication"),
+            {"fields": ("status", "published_at", "is_homepage", "order")},
+        ),
+        (
+            _("SEO"),
+            {
+                "fields": ("meta_title", "meta_description", "meta_keywords"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+
+@admin.register(Media, site=formula_admin_site)
+class MediaAdmin(ModelAdmin):
+    list_display = ["title", "file_type", "file_size", "uploaded_by", "created_at", "preview"]
+    list_filter = [
+        "file_type",
+        ("uploaded_by", RelatedDropdownFilter),
+        "created_at",
+    ]
+    search_fields = ["title", "description", "alt_text"]
+    readonly_fields = ["file_type", "file_size", "preview"]
+    ordering = ["-created_at"]
+    
+    def save_model(self, request, obj, form, change):
+        if not change:  # 只在创建时设置
+            obj.uploaded_by = request.user
+        super().save_model(request, obj, form, change)
+    
+    def preview(self, obj):
+        """显示文件预览"""
+        if obj.file:
+            file_ext = obj.file_type.lower()
+            if file_ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']:
+                return f'<img src="{obj.file.url}" style="max-width: 50px; max-height: 50px;" />'
+            elif file_ext in ['.mp4', '.avi', '.mov', '.wmv']:
+                return f'<video width="50" height="50" controls><source src="{obj.file.url}" type="video/mp4"></video>'
+            elif file_ext in ['.mp3', '.wav', '.ogg']:
+                return f'<audio controls style="width: 100px;"><source src="{obj.file.url}" type="audio/mpeg"></audio>'
+            else:
+                return f'<i class="fas fa-file" style="font-size: 20px;"></i> {obj.file_type}'
+        return '-'
+    preview.short_description = _("Preview")
+    preview.allow_tags = True
+
+    fieldsets = (
+        (
+            _("File Information"),
+            {"fields": ("title", "file", "file_type", "file_size", "preview")},
+        ),
+        (_("Description"), {"fields": ("alt_text", "description")}),
+        (
+            _("Upload Information"),
+            {"fields": ("uploaded_by",), "classes": ("collapse",)},
+        ),
+    )
+
+
+######################################################################
+# Contact & Inquiry Admin
+######################################################################
+
+
+@admin.register(Contact, site=formula_admin_site)
+class ContactAdmin(ModelAdmin):
+    # 禁用新增和删除功能
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    list_display = ["name", "email", "subject", "is_read", "created_at"]
+    list_filter = [
+        "is_read",
+        "created_at",
+        "responded_at",
+    ]
+    search_fields = ["name", "email", "subject", "message"]
+    readonly_fields = ["ip_address", "user_agent", "created_at", "modified_at"]
+    ordering = ["-created_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (
+            _("Contact Information"),
+            {"fields": ("name", "email", "phone", "subject", "message")},
+        ),
+        (
+            _("Response"),
+            {"fields": ("response_message", "responded_by", "responded_at")},
+        ),
+        (
+            _("System Information"),
+            {
+                "fields": ("is_read", "ip_address", "user_agent"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    actions = ["mark_as_read", "mark_as_unread"]
+
+    @action(
+        description=_("Mark selected contacts as read"),
+        variant=ActionVariant.PRIMARY,
+    )
+    def mark_as_read(self, request, queryset):
+        updated = queryset.update(is_read=True)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d contacts as read.") % {"count": updated},
+        )
+
+    @action(
+        description=_("Mark selected contacts as unread"),
+    )
+    def mark_as_unread(self, request, queryset):
+        updated = queryset.update(is_read=False)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d contacts as unread.") % {"count": updated},
+        )
+
+
+@admin.register(Inquiry, site=formula_admin_site)
+class InquiryAdmin(ModelAdmin):
+    # 禁用新增和删除功能
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    list_display = [
+        "name",
+        "email",
+        "company",
+        "product_interest",
+        "status",
+        "assigned_to",
+        "created_at",
+    ]
+    list_filter = [
+        "status",
+        ("assigned_to", RelatedDropdownFilter),
+        "created_at",
+        "responded_at",
+    ]
+    search_fields = ["name", "email", "company", "product_interest", "message", "notes"]
+    readonly_fields = ["ip_address", "user_agent", "created_at", "modified_at"]
+    ordering = ["-created_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (
+            _("Inquiry Information"),
+            {
+                "fields": (
+                    "name",
+                    "email",
+                    "phone",
+                    "company",
+                    "product_interest",
+                    "quantity",
+                    "budget",
+                    "message",
+                )
+            },
+        ),
+        (_("Management"), {"fields": ("status", "assigned_to", "notes")}),
+        (
+            _("Response"),
+            {"fields": ("response_message", "responded_by", "responded_at")},
+        ),
+        (
+            _("System Information"),
+            {"fields": ("ip_address", "user_agent"), "classes": ("collapse",)},
+        ),
+    )
+
+    actions = ["assign_to_me", "mark_as_responded"]
+
+    @action(
+        description=_("Assign selected inquiries to me"),
+        variant=ActionVariant.PRIMARY,
+    )
+    def assign_to_me(self, request, queryset):
+        updated = queryset.update(assigned_to=request.user)
+        self.message_user(
+            request,
+            _("Successfully assigned %(count)d inquiries to you.") % {"count": updated},
+        )
+
+    @action(
+        description=_("Mark selected inquiries as responded"),
+        variant=ActionVariant.SUCCESS,
+    )
+    def mark_as_responded(self, request, queryset):
+        from django.utils import timezone
+
+        updated = queryset.update(
+            status=InquiryStatus.RESPONDED,
+            responded_at=timezone.now(),
+            responded_by=request.user,
+        )
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d inquiries as responded.")
+            % {"count": updated},
+        )
+
+
+@admin.register(Message, site=formula_admin_site)
+class MessageAdmin(ModelAdmin):
+    # 禁用新增和删除功能
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    list_display = ["name", "email", "subject", "is_read", "is_spam", "created_at"]
+    list_filter = [
+        "is_read",
+        "is_spam",
+        "created_at",
+        "responded_at",
+    ]
+    search_fields = ["name", "email", "subject", "message"]
+    readonly_fields = ["ip_address", "user_agent", "created_at", "modified_at"]
+    ordering = ["-created_at"]
+    date_hierarchy = "created_at"
+
+    fieldsets = (
+        (_("Message Information"), {"fields": ("name", "email", "subject", "message")}),
+        (
+            _("Response"),
+            {"fields": ("response_message", "responded_by", "responded_at")},
+        ),
+        (
+            _("System Information"),
+            {
+                "fields": ("is_read", "is_spam", "ip_address", "user_agent"),
+                "classes": ("collapse",),
+            },
+        ),
+    )
+
+    actions = ["mark_as_read", "mark_as_unread", "mark_as_spam", "mark_as_not_spam"]
+
+    @action(
+        description=_("Mark selected messages as read"),
+        variant=ActionVariant.PRIMARY,
+    )
+    def mark_as_read(self, request, queryset):
+        updated = queryset.update(is_read=True)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d messages as read.") % {"count": updated},
+        )
+
+    @action(
+        description=_("Mark selected messages as unread"),
+    )
+    def mark_as_unread(self, request, queryset):
+        updated = queryset.update(is_read=False)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d messages as unread.") % {"count": updated},
+        )
+
+    @action(
+        description=_("Mark selected messages as spam"),
+        variant=ActionVariant.DANGER,
+    )
+    def mark_as_spam(self, request, queryset):
+        updated = queryset.update(is_spam=True)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d messages as spam.") % {"count": updated},
+        )
+
+    @action(
+        description=_("Mark selected messages as not spam"),
+        variant=ActionVariant.SUCCESS,
+    )
+    def mark_as_not_spam(self, request, queryset):
+        updated = queryset.update(is_spam=False)
+        self.message_user(
+            request,
+            _("Successfully marked %(count)d messages as not spam.")
+            % {"count": updated},
+        )

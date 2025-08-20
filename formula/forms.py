@@ -26,7 +26,8 @@ from unfold.widgets import (
     UnfoldBooleanSwitchWidget,
 )
 
-from formula.models import Driver
+from formula.models import Driver, Contact, Inquiry, Message
+from unfold.contrib.forms.widgets import WysiwygWidget
 
 
 class HomeView(RedirectView):
@@ -269,32 +270,219 @@ class DriverFormHelper(FormHelper):
 class DriverForm(forms.ModelForm):
     class Meta:
         model = Driver
-        fields = [
-            "first_name",
-            "last_name",
-            "code",
-        ]
-        widgets = {
-            "first_name": UnfoldAdminTextInputWidget(),
-            "last_name": UnfoldAdminTextInputWidget(),
-            "code": UnfoldAdminTextInputWidget(),
-        }
-
-    def clean(self):
-        raise ValidationError("Testing form wide error messages.")
+        fields = "__all__"
 
 
 class DriverFormSet(forms.BaseModelFormSet):
     def clean(self):
-        raise ValidationError("Testing formset wide error messages.")
+        super().clean()
+        for form in self.forms:
+            if form.cleaned_data and not form.cleaned_data.get("DELETE"):
+                if not form.cleaned_data.get("first_name"):
+                    form.add_error("first_name", _("First name is required."))
 
 
 class LoginForm(AuthenticationForm):
-    password = forms.CharField(widget=forms.PasswordInput(render_value=True))
+    def __init__(self, *args, **kwargs):
+        # Extract request from kwargs if present (for UnfoldAdminSite compatibility)
+        self.request = kwargs.pop('request', None)
+        super().__init__(*args, **kwargs)
+        from django.conf import settings
 
-    def __init__(self, request=None, *args, **kwargs):
-        super().__init__(request, *args, **kwargs)
+        self.fields["username"].initial = settings.LOGIN_USERNAME
+        self.fields["password"].initial = settings.LOGIN_PASSWORD
 
-        if settings.LOGIN_USERNAME and settings.LOGIN_PASSWORD:
-            self.fields["username"].initial = settings.LOGIN_USERNAME
-            self.fields["password"].initial = settings.LOGIN_PASSWORD
+
+######################################################################
+# Rich Text Editor with Multimedia Support
+######################################################################
+
+class RichTextWidget(WysiwygWidget):
+    """支持多媒体的富文本编辑器"""
+    
+    def __init__(self, attrs=None):
+        if attrs is None:
+            attrs = {}
+        
+        # 配置富文本编辑器的多媒体支持
+        attrs.update({
+            'data-media-upload-url': '/admin/formula/media/upload/',
+            'data-media-browse-url': '/admin/formula/media/browser/',
+            'data-image-upload-url': '/admin/formula/media/upload/',
+            'data-video-upload-url': '/admin/formula/media/upload/',
+            'data-audio-upload-url': '/admin/formula/media/upload/',
+        })
+        
+        super().__init__(attrs)
+    
+    class Media:
+        css = {
+            'all': (
+                'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css',
+                'css/rich-text-multimedia.css',
+            )
+        }
+        js = (
+            'https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js',
+            'js/rich-text-multimedia.js',
+        )
+
+
+######################################################################
+# Contact & Inquiry Forms
+######################################################################
+
+class ContactForm(forms.ModelForm):
+    """联系表单"""
+    
+    class Meta:
+        model = Contact
+        fields = ["name", "email", "phone", "subject", "message"]
+        widgets = {
+            "name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your name")
+            }),
+            "email": forms.EmailInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your email")
+            }),
+            "phone": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your phone number (optional)")
+            }),
+            "subject": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Subject")
+            }),
+            "message": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": _("Your message")
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update({"required": "required"})
+
+
+class InquiryForm(forms.ModelForm):
+    """询盘表单"""
+    
+    class Meta:
+        model = Inquiry
+        fields = [
+            "name", "email", "phone", "company", 
+            "product_interest", "quantity", "budget", "message"
+        ]
+        widgets = {
+            "name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your name")
+            }),
+            "email": forms.EmailInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your email")
+            }),
+            "phone": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your phone number")
+            }),
+            "company": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your company name")
+            }),
+            "product_interest": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Product you're interested in")
+            }),
+            "quantity": forms.NumberInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Quantity needed"),
+                "min": 1
+            }),
+            "budget": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your budget range")
+            }),
+            "message": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": _("Additional details about your inquiry")
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 设置必填字段
+        required_fields = ["name", "email", "product_interest", "message"]
+        for field_name in required_fields:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs.update({"required": "required"})
+
+
+class MessageForm(forms.ModelForm):
+    """留言表单"""
+    
+    class Meta:
+        model = Message
+        fields = ["name", "email", "subject", "message"]
+        widgets = {
+            "name": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your name")
+            }),
+            "email": forms.EmailInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Your email")
+            }),
+            "subject": forms.TextInput(attrs={
+                "class": "form-control",
+                "placeholder": _("Subject (optional)")
+            }),
+            "message": forms.Textarea(attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": _("Your message")
+            }),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 设置必填字段
+        required_fields = ["name", "email", "message"]
+        for field_name in required_fields:
+            if field_name in self.fields:
+                self.fields[field_name].widget.attrs.update({"required": "required"})
+
+
+class NewsletterForm(forms.Form):
+    """订阅表单"""
+    email = forms.EmailField(
+        widget=forms.EmailInput(attrs={
+            "class": "form-control",
+            "placeholder": _("Enter your email address")
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["email"].widget.attrs.update({"required": "required"})
+
+
+class SearchForm(forms.Form):
+    """搜索表单"""
+    q = forms.CharField(
+        max_length=255,
+        widget=forms.TextInput(attrs={
+            "class": "form-control",
+            "placeholder": _("Search..."),
+            "type": "search"
+        })
+    )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["q"].widget.attrs.update({"required": "required"})

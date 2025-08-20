@@ -1,0 +1,128 @@
+{% extends "formula/cms/base.html" %}
+
+{% block title %}Formula CMS - Home{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="bg-primary text-white p-5 rounded">
+            <h1 class="display-4">Welcome to Formula CMS</h1>
+            <p class="lead">Your comprehensive content management system for Formula racing enthusiasts.</p>
+            <a href="{% url 'article_list' %}" class="btn btn-light btn-lg">Explore Articles</a>
+        </div>
+    </div>
+</div>
+
+<!-- Featured Articles -->
+{% if featured_articles %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-4">Featured Articles</h2>
+        <div class="row">
+            {% for article in featured_articles %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card article-card h-100 featured-article">
+                    {% if article.featured_image %}
+                    <img src="{{ article.featured_image.url }}" class="card-img-top" alt="{{ article.title }}">
+                    {% endif %}
+                    <div class="card-body">
+                        <h5 class="card-title">{{ article.title }}</h5>
+                        <p class="card-text text-muted">
+                            <small>
+                                <i class="fas fa-user"></i> {{ article.author.get_full_name|default:article.author.username }}
+                                <i class="fas fa-calendar ms-2"></i> {{ article.published_at|date:"M d, Y" }}
+                            </small>
+                        </p>
+                        {% if article.excerpt %}
+                        <p class="card-text">{{ article.excerpt|truncatewords:20 }}</p>
+                        {% endif %}
+                        <a href="{% url 'article_detail' article.slug %}" class="btn btn-primary">Read More</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Latest Articles -->
+{% if latest_articles %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-4">Latest Articles</h2>
+        <div class="row">
+            {% for article in latest_articles %}
+            <div class="col-md-6 mb-4">
+                <div class="card article-card h-100">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ article.title }}</h5>
+                        <p class="card-text text-muted">
+                            <small>
+                                <i class="fas fa-user"></i> {{ article.author.get_full_name|default:article.author.username }}
+                                <i class="fas fa-calendar ms-2"></i> {{ article.published_at|date:"M d, Y" }}
+                                <i class="fas fa-eye ms-2"></i> {{ article.view_count }}
+                            </small>
+                        </p>
+                        {% if article.excerpt %}
+                        <p class="card-text">{{ article.excerpt|truncatewords:15 }}</p>
+                        {% endif %}
+                        <a href="{% url 'article_detail' article.slug %}" class="btn btn-outline-primary">Read More</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-center">
+            <a href="{% url 'article_list' %}" class="btn btn-primary">View All Articles</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Categories -->
+{% if categories %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h2 class="mb-4">Categories</h2>
+        <div class="row">
+            {% for category in categories %}
+            <div class="col-md-3 col-sm-6 mb-3">
+                <div class="card text-center">
+                    <div class="card-body">
+                        {% if category.image %}
+                        <img src="{{ category.image.url }}" class="img-fluid mb-3" alt="{{ category.name }}" style="max-height: 100px;">
+                        {% endif %}
+                        <h5 class="card-title">{{ category.name }}</h5>
+                        {% if category.description %}
+                        <p class="card-text">{{ category.description|truncatewords:10 }}</p>
+                        {% endif %}
+                        {% if category.slug %}
+                        <a href="{% url 'category_detail' category.slug %}" class="btn btn-outline-secondary">Browse</a>
+                        {% else %}
+                        <span class="btn btn-outline-secondary disabled">No Link</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Call to Action -->
+<div class="row">
+    <div class="col-12">
+        <div class="bg-light p-5 rounded text-center">
+            <h3>Get in Touch</h3>
+            <p class="lead">Have questions or want to submit an inquiry? We'd love to hear from you!</p>
+            <div class="d-flex justify-content-center gap-3">
+                <a href="{% url 'contact' %}" class="btn btn-primary">Contact Us</a>
+                <a href="{% url 'inquiry' %}" class="btn btn-outline-primary">Submit Inquiry</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
