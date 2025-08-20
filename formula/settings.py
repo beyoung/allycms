@@ -29,7 +29,7 @@ DATA_UPLOAD_MAX_NUMBER_FIELDS = 10_000
 ######################################################################
 # Domains
 ######################################################################
-ALLOWED_HOSTS = environ.get("ALLOWED_HOSTS", "localhost").split(",")
+ALLOWED_HOSTS = environ.get("ALLOWED_HOSTS", "localhost,testserver").split(",")
 
 CSRF_TRUSTED_ORIGINS = environ.get(
     "CSRF_TRUSTED_ORIGINS", "http://localhost:8000"

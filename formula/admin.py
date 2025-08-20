@@ -1452,13 +1452,15 @@ class ContactAdmin(ModelAdmin):
 
 @admin.register(Inquiry, site=formula_admin_site)
 class InquiryAdmin(ModelAdmin):
-    # 禁用新增和删除功能
+    # 禁用新增、删除和历史记录功能
+    object_history_template = None  # 隐藏历史记录模板
+    
     def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):
         return False
-
+    
     list_display = [
         "name",
         "email",
@@ -1540,7 +1542,8 @@ class InquiryAdmin(ModelAdmin):
 
 @admin.register(Message, site=formula_admin_site)
 class MessageAdmin(ModelAdmin):
-    # 禁用新增和删除功能
+
+    
     def has_add_permission(self, request):
         return False
 

@@ -362,6 +362,7 @@ class Article(AuditedModel):
     is_featured = models.BooleanField(_("featured"), default=False)
     view_count = models.PositiveIntegerField(_("view count"), default=0)
     tags = GenericRelation(Tag)
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "cms_articles"
@@ -413,6 +414,7 @@ class Page(AuditedModel):
     meta_keywords = models.CharField(_("meta keywords"), max_length=255, blank=True)
     is_homepage = models.BooleanField(_("homepage"), default=False)
     order = models.PositiveIntegerField(_("order"), default=0)
+    history = HistoricalRecords()
 
     class Meta:
         db_table = "cms_pages"
